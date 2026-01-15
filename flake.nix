@@ -13,6 +13,7 @@
           bun
           typescript
           typescript-language-server
+          docker
         ];
       };
     };

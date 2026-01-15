@@ -1,25 +1,39 @@
 import Parser from 'rss-parser';
+import { Article, ModelRanking, today } from '@/db/schema'
+import { insert_articles, upsert_rankings, db } from '@/db/index'
 
 export async function GET() {
-  /*
+
+  // fetch raw data
   const civ_models = await fetch_top_civitai_models(10);
   const hf_models = await fetch_trending_huggingface_models(10);
-  return Response.json({
+  const lw_articles = await fetch_lesswrong_feed();
+
+  const fetched_contents = ({
       hf_models: hf_models,
       civ_models: civ_models,
+      lw_articles: lw_articles.map(a => ({
+        title: a.title,
+        fetchedAt: a.fetchedAt,
+        publishedAt: a.publishedAt 
+      })),  // shorter repr ^
   });
-  */
-  await fetch_lesswrong_feed();
-  return Response.json({status: 'ok'});
+
+  // insert/upsert fetched contents into db 
+  await insert_articles(db, lw_articles);
+  await upsert_rankings(db, hf_models);
+  await upsert_rankings(db, civ_models);
+
+  // do llm postprocessing
+  // TODO
+
+  // return fetched contents
+  return Response.json({fetched_contents: fetched_contents});
 }
 
-type ModelStat = {
-  name: string,
-  downloadCount: number,
-}
 
 // https://github.com/civitai/civitai/wiki/REST-API-Reference#get-apiv1models
-async function fetch_top_civitai_models(limit: number): Promise<ModelStat[]> {
+async function fetch_top_civitai_models(limit: number): Promise<ModelRanking[]> {
   const api_key = process.env.CIVITAI_API_KEY;
   const endpoint_url = "https://civitai.com/api/v1/models";
   const params = new URLSearchParams({
@@ -37,8 +51,10 @@ async function fetch_top_civitai_models(limit: number): Promise<ModelStat[]> {
   const data = await res.json();
   const models = data.items
   .map((item: any) => ({
-      name: item.name,
-      downloadCount: item.stats.downloadCount
+      source: 'civitai',
+      modelName: item.name,
+      fetchedDate: today(),
+      downloads: item.stats.downloadCount,
     }))
   .sort((a: any, b: any) => b.downloadCount - a.downloadCount);
 
@@ -46,7 +62,7 @@ async function fetch_top_civitai_models(limit: number): Promise<ModelStat[]> {
 }
 
 // https://huggingface.co/.well-known/openapi.json
-async function fetch_trending_huggingface_models(limit: number): Promise<ModelStat[]> {
+async function fetch_trending_huggingface_models(limit: number): Promise<ModelRanking[]> {
   const endpoint_url = "https://huggingface.co/api/trending";
   const params = new URLSearchParams({
     type: "model",
@@ -57,34 +73,37 @@ async function fetch_trending_huggingface_models(limit: number): Promise<ModelSt
   const data = await res.json();
   const models = data.recentlyTrending
     .map((item: any) => ({
-      name: item.repoData.id,
-      downloadCount: item.repoData.downloads
+      source: 'huggingface',
+      modelName: item.repoData.id,
+      fetchedDate: today(),
+      downloads: item.repoData.downloads,
     }))
     .sort((a: any, b: any) => b.downloadCount - a.downloadCount);
   return models;
 }
 
 // www.lesswrong.com
-async function fetch_lesswrong_feed() {
+async function fetch_lesswrong_feed(): Promise<Article[]> {
   const parser = new Parser();
   const feed = await parser.parseURL(
     'https://www.lesswrong.com/feed.xml?\
     view=frontpage-rss&karmaThreshold=30'
   );
 
-  const posts = feed.items.map(item => ({
-    title: item.title,
-    link: item.link,
-    pubDate: item.pubDate,
-    author: item.creator,
-    content: item.content,
-  }));
+  const articles = feed.items
+    .filter(item => item.title && item.link)
+    .map(item => ({
+      link: item.link!,
+      source: 'lesswrong',
+      title: item.title!,
+      author: item.creator ?? null,
+      rawContent: item.content ?? null,
+      shouldInclude: null,
+      publishedAt: item.pubDate ? new Date(item.pubDate) : null,
+    }));
 
-  console.log(posts);
+  return articles;
 }
-
-
-
 
 
 
