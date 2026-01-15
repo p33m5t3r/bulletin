@@ -8,8 +8,10 @@ basic raw content fetching:
 [ ] arxiv weekly papers
 
 [x] store items in db
-[ ] fetch from db to frontend
-[ ] postprocess lw
+[x] fetch from db to frontend
+[x] postprocess lw
+[ ] add hf model links
+[ ] add hf m
 [ ] make frontend nice
 
 

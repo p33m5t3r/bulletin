@@ -1,0 +1,18 @@
+{
+  "type": "object",
+  "properties": {
+    "should_include": {
+      "type": "boolean",
+      "description": "whether to include the article in the feed; true for ai related posts, false otherwise"
+    },
+    "summary": {
+      "type": "string",
+      "description": "a 1-3 short sentence summary of the given article"
+    }
+  },
+  "required": [
+    "should_include"
+  ]
+}
+
+

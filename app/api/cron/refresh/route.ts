@@ -1,34 +1,85 @@
 import Parser from 'rss-parser';
+import Anthropic from '@anthropic-ai/sdk';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { Article, ModelRanking, today } from '@/db/schema'
-import { insert_articles, upsert_rankings, db } from '@/db/index'
+import { insert_articles, upsert_rankings, update_article_summary, query_articles, db } from '@/db/index'
+
+const LW_PROMPT = readFileSync(join(process.cwd(), 'llm/lesswrong_prompt.txt'), 'utf-8');
+const LW_TOOL_SCHEMA = JSON.parse(readFileSync(join(process.cwd(), 'llm/lesswrong_tool_schema.json'), 'utf-8'));
+
+const anthropic = new Anthropic();
+
+// export async function GET() {
+// 
+//   // fetch raw data
+//   const civ_models = await fetch_top_civitai_models(10);
+//   const hf_models = await fetch_trending_huggingface_models(10);
+//   const lw_articles = await fetch_lesswrong_feed();
+// 
+//   const fetched_contents = ({
+//       hf_models: hf_models,
+//       civ_models: civ_models,
+//       lw_articles: lw_articles.map(a => ({
+//         title: a.title,
+//         fetchedAt: a.fetchedAt,
+//         publishedAt: a.publishedAt 
+//       })),  // shorter repr ^
+//   });
+// 
+//   // insert/upsert fetched contents into db 
+//   await insert_articles(db, lw_articles);
+//   await upsert_rankings(db, hf_models);
+//   await upsert_rankings(db, civ_models);
+// 
+//   // do llm postprocessing
+//   // TODO
+// 
+//   // return fetched contents
+//   return Response.json({fetched_contents: fetched_contents});
+// }
 
 export async function GET() {
+  // await postprocess_lw();
+  const model = await fetch_trending_huggingface_models(1);
 
-  // fetch raw data
-  const civ_models = await fetch_top_civitai_models(10);
-  const hf_models = await fetch_trending_huggingface_models(10);
-  const lw_articles = await fetch_lesswrong_feed();
+  return Response.json({status: 'ok'});
+}
 
-  const fetched_contents = ({
-      hf_models: hf_models,
-      civ_models: civ_models,
-      lw_articles: lw_articles.map(a => ({
-        title: a.title,
-        fetchedAt: a.fetchedAt,
-        publishedAt: a.publishedAt 
-      })),  // shorter repr ^
-  });
+async function postprocess_lw() {
+  const allArticles = await query_articles(db, 'lesswrong');
+  const unprocessed = allArticles
+    .filter(a => a.shouldInclude === null)
+    .slice(0, 1); // TODO: remove slice
 
-  // insert/upsert fetched contents into db 
-  await insert_articles(db, lw_articles);
-  await upsert_rankings(db, hf_models);
-  await upsert_rankings(db, civ_models);
+  for (const article of unprocessed) {
+    if (!article.rawContent) continue;
 
-  // do llm postprocessing
-  // TODO
+    const msg = await anthropic.messages.create({
+      model: "claude-sonnet-4-5-20250929",
+      max_tokens: 1024,
+      temperature: 1,
+      system: LW_PROMPT,
+      messages: [{ role: "user", content: article.rawContent }],
+      tools: [{
+        name: "process_article",
+        description: "Process the article to determine inclusion and generate summary",
+        input_schema: LW_TOOL_SCHEMA
+      }]
+    });
 
-  // return fetched contents
-  return Response.json({fetched_contents: fetched_contents});
+    const toolUse = msg.content.find((block: any) => block.type === 'tool_use');
+    if (toolUse && toolUse.type === 'tool_use') {
+      const input = toolUse.input as { should_include: boolean; summary?: string };
+      await update_article_summary(
+        db,
+        article.link,
+        input.summary ?? '',
+        input.should_include
+      );
+      console.log(`Processed: ${article.title} -> include=${input.should_include}`);
+    }
+  }
 }
 
 
