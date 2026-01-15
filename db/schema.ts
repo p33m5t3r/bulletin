@@ -1,4 +1,4 @@
-import { mysqlTable, int, text, varchar, boolean, timestamp, date, unique } from 'drizzle-orm/mysql-core'
+import { mysqlTable, int, text, mediumtext, varchar, boolean, timestamp, date, unique } from 'drizzle-orm/mysql-core'
 
 // LessWrong posts, arxiv papers - upsert on link
 export const articles = mysqlTable('articles', {
@@ -7,7 +7,7 @@ export const articles = mysqlTable('articles', {
   link: varchar('link', { length: 512 }).notNull().unique(),  // canonical URL, dedupes
   title: text('title').notNull(),
   author: text('author'),
-  rawContent: text('raw_content'),
+  rawContent: mediumtext('raw_content'),
   summary: text('summary'),                   // LLM generated
   shouldInclude: boolean('should_include'),   // LLM filtered
   publishedAt: timestamp('published_at'),     // original publish date
@@ -20,6 +20,8 @@ export const modelRankings = mysqlTable('model_rankings', {
   source: varchar('source', { length: 50 }).notNull(),       // 'huggingface' | 'civitai'
   modelName: varchar('model_name', { length: 255 }).notNull(), // name is the identifier
   downloads: int('downloads'),
+  description: mediumtext('description'),  // README / raw content
+  summary: text('summary'),          // LLM generated
   fetchedDate: date('fetched_date').notNull(), // date, not timestamp
 }, (table) => [
   // composite unique: one row per model per day per source

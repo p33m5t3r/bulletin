@@ -10,41 +10,41 @@ const LW_TOOL_SCHEMA = JSON.parse(readFileSync(join(process.cwd(), 'llm/lesswron
 
 const anthropic = new Anthropic();
 
-// export async function GET() {
-// 
-//   // fetch raw data
-//   const civ_models = await fetch_top_civitai_models(10);
-//   const hf_models = await fetch_trending_huggingface_models(10);
-//   const lw_articles = await fetch_lesswrong_feed();
-// 
-//   const fetched_contents = ({
-//       hf_models: hf_models,
-//       civ_models: civ_models,
-//       lw_articles: lw_articles.map(a => ({
-//         title: a.title,
-//         fetchedAt: a.fetchedAt,
-//         publishedAt: a.publishedAt 
-//       })),  // shorter repr ^
-//   });
-// 
-//   // insert/upsert fetched contents into db 
-//   await insert_articles(db, lw_articles);
-//   await upsert_rankings(db, hf_models);
-//   await upsert_rankings(db, civ_models);
-// 
-//   // do llm postprocessing
-//   // TODO
-// 
-//   // return fetched contents
-//   return Response.json({fetched_contents: fetched_contents});
-// }
-
 export async function GET() {
-  // await postprocess_lw();
-  const model = await fetch_trending_huggingface_models(1);
 
-  return Response.json({status: 'ok'});
+  // fetch raw data
+  const civ_models = await fetch_top_civitai_models(10);
+  const hf_models = await fetch_trending_huggingface_models(10);
+  const lw_articles = await fetch_lesswrong_feed();
+
+  const fetched_contents = ({
+      hf_models: hf_models,
+      civ_models: civ_models,
+      lw_articles: lw_articles.map(a => ({
+        title: a.title,
+        fetchedAt: a.fetchedAt,
+        publishedAt: a.publishedAt 
+      })),  // shorter repr ^
+  });
+
+  // insert/upsert fetched contents into db 
+  await insert_articles(db, lw_articles);
+  await upsert_rankings(db, hf_models);
+  await upsert_rankings(db, civ_models);
+
+  // do llm postprocessing
+  // TODO
+
+  // return fetched contents
+  return Response.json({fetched_contents: fetched_contents});
 }
+
+// export async function GET() {
+//   // await postprocess_lw();
+//   const model = await fetch_top_civitai_models(1);
+// 
+//   return Response.json({status: 'ok'});
+// }
 
 async function postprocess_lw() {
   const allArticles = await query_articles(db, 'lesswrong');
@@ -106,6 +106,7 @@ async function fetch_top_civitai_models(limit: number): Promise<ModelRanking[]> 
       modelName: item.name,
       fetchedDate: today(),
       downloads: item.stats.downloadCount,
+      description: item.description + `\n\nTAGS: ${item.tags}`
     }))
   .sort((a: any, b: any) => b.downloadCount - a.downloadCount);
 
@@ -122,15 +123,24 @@ async function fetch_trending_huggingface_models(limit: number): Promise<ModelRa
 
   const res = await fetch(`${endpoint_url}?${params}`);
   const data = await res.json();
-  const models = data.recentlyTrending
-    .map((item: any) => ({
-      source: 'huggingface',
-      modelName: item.repoData.id,
-      fetchedDate: today(),
-      downloads: item.repoData.downloads,
-    }))
-    .sort((a: any, b: any) => b.downloadCount - a.downloadCount);
-  return models;
+
+  const models = await Promise.all(
+    data.recentlyTrending.map(async (item: any) => {
+      const modelId = item.repoData.id;
+      const readmeRes = await fetch(`https://huggingface.co/${modelId}/resolve/main/README.md`);
+      const description = readmeRes.ok ? await readmeRes.text() : null;
+
+      return {
+        source: 'huggingface' as const,
+        modelName: modelId,
+        fetchedDate: today(),
+        downloads: item.repoData.downloads,
+        description,
+      };
+    })
+  );
+
+  return models.sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0));
 }
 
 // www.lesswrong.com
