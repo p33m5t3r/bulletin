@@ -43,12 +43,9 @@ export async function query_articles(db: DB, source: string) {
     )
 }
 
-// fetch all model rankings matching date and source
-export async function query_rankings(db: DB, date: Date, source: string) {
+// fetch all model rankings matching source
+export async function query_rankings(db: DB, source: string) {
   return await db.select()
     .from(modelRankings)
-    .where(and(
-      eq(modelRankings.source, source),
-      eq(modelRankings.fetchedDate, date)
-    ))
+    .where(eq(modelRankings.source, source))
 }
