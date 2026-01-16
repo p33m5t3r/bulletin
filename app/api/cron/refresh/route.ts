@@ -27,7 +27,12 @@ const DAILY_SUMMARY_PROMPT = readFileSync(join(process.cwd(), 'llm/daily_summary
 
 const anthropic = new Anthropic();
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Verify cron secret
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response('Unauthorized', { status: 401 });
+  }
 
   // fetch raw data
   const civ_models = await fetch_top_civitai_models(10);
