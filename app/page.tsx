@@ -30,11 +30,16 @@ export default async function Home() {
   return (
     <main className="min-h-screen bg-neutral-900 text-neutral-300">
       <div className="max-w-6xl mx-auto p-8">
-        <div className="flex items-baseline gap-4 mb-8">
-          <h1 className="text-3xl font-bold tracking-tight text-neutral-100">
-            Bulletin
-          </h1>
-          <span className="text-neutral-500 text-sm italic">llms all the way down</span>
+        <div className="flex items-baseline justify-between mb-8">
+          <div className="flex items-baseline gap-4">
+            <h1 className="text-3xl font-bold tracking-tight text-neutral-100">
+              Bulletin
+            </h1>
+            <span className="text-neutral-500 text-sm italic">llms all the way down</span>
+          </div>
+          <a href="https://github.com/p33m5t3r/bulletin" className="text-neutral-500 text-lg italic hover:text-fuchsia-300 transition-colors">
+            source
+          </a>
         </div>
 
         {/* Daily summary */}
