@@ -1,12 +1,16 @@
-import { drizzle } from 'drizzle-orm/mysql2'
+import { drizzle } from 'drizzle-orm/planetscale-serverless'
+import { Client } from '@planetscale/database'
 import { sql, eq, and } from 'drizzle-orm'
-import mysql from 'mysql2/promise'
 import * as schema from './schema'
 import { Article, ModelRanking, articles, modelRankings, dailySummaries } from './schema'
 
-const connection = await mysql.createConnection(process.env.DATABASE_URL!)
+const client = new Client({
+  host: process.env.DATABASE_HOST,
+  username: process.env.DATABASE_USERNAME,
+  password: process.env.DATABASE_PASSWORD,
+})
 
-export const db = drizzle(connection, { schema, mode: 'default' })
+export const db = drizzle(client, { schema })
 export type DB = typeof db
 
 // insert articles, skip if already exists (don't clobber LLM results)
@@ -61,12 +65,12 @@ export async function update_ranking_summary(db: DB, id: number, summary: string
 export async function query_daily_summary(db: DB, date: string) {
   const results = await db.select()
     .from(dailySummaries)
-    .where(eq(dailySummaries.date, date))
+    .where(eq(dailySummaries.date, new Date(date)))
   return results[0] ?? null
 }
 
 // insert daily summary
 export async function insert_daily_summary(db: DB, date: string, summary: string) {
   await db.insert(dailySummaries)
-    .values({ date, summary })
+    .values({ date: new Date(date), summary })
 }
