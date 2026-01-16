@@ -1,5 +1,6 @@
 import { db, query_articles, query_rankings, query_daily_summary } from '@/db'
 import { today } from '@/db/schema'
+import { ExpandableSummary } from './components/ExpandableSummary'
 
 export const dynamic = 'force-dynamic'
 
@@ -29,33 +30,34 @@ export default async function Home() {
 
   return (
     <main className="min-h-screen bg-neutral-900 text-neutral-300">
-      <div className="max-w-6xl mx-auto p-8">
-        <div className="flex items-baseline justify-between mb-8">
-          <div className="flex items-baseline gap-4">
-            <h1 className="text-3xl font-bold tracking-tight text-neutral-100">
+      <div className="max-w-6xl mx-auto p-4 md:p-8">
+        {/* Header */}
+        <div className="flex flex-col gap-2 mb-6 md:flex-row md:items-baseline md:justify-between md:mb-8">
+          <div className="flex flex-col gap-1 md:flex-row md:items-baseline md:gap-4">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-neutral-100">
               Bulletin
             </h1>
-            <span className="text-neutral-500 text-sm italic">
-              llms all the way down · by <a href="https://0xpemulis.net/" className="hover:text-fuchsia-300 transition-colors">0xpemulis</a>
+            <span className="text-neutral-500 text-xs md:text-sm italic">
+              ai-curated ml news · by <a href="https://0xpemulis.net/" className="hover:text-fuchsia-300 transition-colors">0xpemulis</a>
             </span>
           </div>
-          <a href="https://github.com/p33m5t3r/bulletin" className="text-neutral-500 text-lg italic hover:text-fuchsia-300 transition-colors">
+          <a href="https://github.com/p33m5t3r/bulletin" className="text-neutral-500 text-sm md:text-lg italic hover:text-fuchsia-300 transition-colors">
             source
           </a>
         </div>
 
         {/* Daily summary */}
-        <section className="mb-10 p-6 bg-neutral-800 border-l-2 border-fuchsia-400 font-serif">
+        <section className="mb-8 md:mb-10 p-4 md:p-6 bg-neutral-800 border-l-2 border-fuchsia-400 font-serif">
           {dailySummary ? (
-            <p className="text-neutral-300 leading-relaxed text-lg">{dailySummary.summary}</p>
+            <ExpandableSummary summary={dailySummary.summary} wordLimit={25} />
           ) : (
             <p className="text-neutral-500 italic">No summary yet - run the cron to generate one.</p>
           )}
         </section>
 
-        {/* Model rankings row */}
-        <div className="flex gap-8 mb-10">
-          <section className="flex-1">
+        {/* Model rankings */}
+        <div className="flex flex-col gap-8 mb-8 md:flex-row md:gap-8 md:mb-10">
+          <section className="flex-1 min-w-0">
             <h2 className="font-semibold mb-4 text-neutral-500 uppercase tracking-wider text-sm">
               HuggingFace Trending
             </h2>
@@ -63,8 +65,8 @@ export default async function Home() {
               {sortedHfRankings.map(r => (
                 <div key={r.id} className="mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-fuchsia-400">↓</span>
-                    <span className="text-neutral-500 font-mono text-sm w-16">{formatDownloads(r.downloads)}</span>
+                    <span className="text-fuchsia-400 shrink-0">↓</span>
+                    <span className="text-neutral-500 font-mono text-sm w-14 md:w-16 shrink-0">{formatDownloads(r.downloads)}</span>
                     <a
                       href={`https://huggingface.co/${r.modelName}`}
                       className="text-neutral-200 hover:text-fuchsia-300 transition-colors truncate"
@@ -72,14 +74,14 @@ export default async function Home() {
                       {r.modelName}
                     </a>
                   </div>
-                  {r.summary && <p className="text-sm text-neutral-500 ml-24 mt-1 italic">{r.summary}</p>}
+                  {r.summary && <p className="text-sm text-neutral-500 mt-1 ml-6 md:ml-24 italic">{r.summary}</p>}
                 </div>
               ))}
               {sortedHfRankings.length === 0 && <p className="text-neutral-600">No rankings yet</p>}
             </div>
           </section>
 
-          <section className="flex-1">
+          <section className="flex-1 min-w-0">
             <h2 className="font-semibold mb-4 text-neutral-500 uppercase tracking-wider text-sm">
               Civitai Top Models
             </h2>
@@ -87,15 +89,15 @@ export default async function Home() {
               {sortedCivRankings.map(r => (
                 <div key={r.id} className="mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-fuchsia-400">↓</span>
-                    <span className="text-neutral-500 font-mono text-sm w-16">{formatDownloads(r.downloads)}</span>
+                    <span className="text-fuchsia-400 shrink-0">↓</span>
+                    <span className="text-neutral-500 font-mono text-sm w-14 md:w-16 shrink-0">{formatDownloads(r.downloads)}</span>
                     {r.link ? (
                       <a href={r.link} className="text-neutral-200 hover:text-fuchsia-300 transition-colors truncate">{r.modelName}</a>
                     ) : (
                       <span className="text-neutral-300 truncate">{r.modelName}</span>
                     )}
                   </div>
-                  {r.summary && <p className="text-sm text-neutral-500 ml-24 mt-1 italic">{r.summary}</p>}
+                  {r.summary && <p className="text-sm text-neutral-500 mt-1 ml-6 md:ml-24 italic">{r.summary}</p>}
                 </div>
               ))}
               {sortedCivRankings.length === 0 && <p className="text-neutral-600">No rankings yet</p>}
@@ -103,9 +105,9 @@ export default async function Home() {
           </section>
         </div>
 
-        {/* Articles row */}
-        <div className="flex gap-8">
-          <section className="flex-1">
+        {/* Articles */}
+        <div className="flex flex-col gap-8 md:flex-row md:gap-8">
+          <section className="flex-1 min-w-0">
             <h2 className="font-semibold mb-4 text-neutral-500 uppercase tracking-wider text-sm">
               LessWrong
             </h2>
@@ -123,7 +125,7 @@ export default async function Home() {
             </div>
           </section>
 
-          <section className="flex-1">
+          <section className="flex-1 min-w-0">
             <h2 className="font-semibold mb-4 text-neutral-500 uppercase tracking-wider text-sm">
               Trending Daily Papers
             </h2>
