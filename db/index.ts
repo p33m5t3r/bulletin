@@ -49,3 +49,10 @@ export async function query_rankings(db: DB, source: string) {
     .from(modelRankings)
     .where(eq(modelRankings.source, source))
 }
+
+// update LLM summary for a ranking
+export async function update_ranking_summary(db: DB, id: number, summary: string) {
+  await db.update(modelRankings)
+    .set({ summary })
+    .where(eq(modelRankings.id, id))
+}

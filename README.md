@@ -10,8 +10,8 @@ basic raw content fetching:
 [x] store items in db
 [x] fetch from db to frontend
 [x] postprocess lw
-[ ] add hf model links
-[ ] add hf m
+[x] postprocess rankings
+[ ] add arxiv
 [ ] make frontend nice
 
 

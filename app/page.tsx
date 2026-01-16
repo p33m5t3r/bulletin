@@ -29,11 +29,14 @@ export default async function Home() {
 
       <section className="mb-12">
         <h2 className="text-xl font-semibold mb-4">HuggingFace Trending</h2>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {hfRankings.map((r, i) => (
-            <div key={r.id} className="flex justify-between">
-              <span>{i + 1}. {r.modelName}</span>
-              <span className="text-gray-500">{r.downloads?.toLocaleString()} downloads</span>
+            <div key={r.id} className="border-b pb-2">
+              <div className="flex justify-between">
+                <span className="font-medium">{i + 1}. {r.modelName}</span>
+                <span className="text-gray-500">{r.downloads?.toLocaleString()} downloads</span>
+              </div>
+              {r.summary && <p className="text-sm text-gray-600 mt-1">{r.summary}</p>}
             </div>
           ))}
           {hfRankings.length === 0 && <p className="text-gray-500">No rankings yet</p>}
@@ -42,11 +45,14 @@ export default async function Home() {
 
       <section className="mb-12">
         <h2 className="text-xl font-semibold mb-4">Civitai Top Models</h2>
-        <div className="space-y-2">
+        <div className="space-y-3">
           {civRankings.map((r, i) => (
-            <div key={r.id} className="flex justify-between">
-              <span>{i + 1}. {r.modelName}</span>
-              <span className="text-gray-500">{r.downloads?.toLocaleString()} downloads</span>
+            <div key={r.id} className="border-b pb-2">
+              <div className="flex justify-between">
+                <span className="font-medium">{i + 1}. {r.modelName}</span>
+                <span className="text-gray-500">{r.downloads?.toLocaleString()} downloads</span>
+              </div>
+              {r.summary && <p className="text-sm text-gray-600 mt-1">{r.summary}</p>}
             </div>
           ))}
           {civRankings.length === 0 && <p className="text-gray-500">No rankings yet</p>}

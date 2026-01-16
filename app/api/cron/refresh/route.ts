@@ -3,10 +3,22 @@ import Anthropic from '@anthropic-ai/sdk';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { Article, ModelRanking, today } from '@/db/schema'
-import { insert_articles, upsert_rankings, update_article_summary, query_articles, db } from '@/db/index'
+import {
+  insert_articles,
+  upsert_rankings,
+  update_article_summary,
+  update_ranking_summary,
+  query_articles,
+  query_rankings,
+  db
+} from '@/db/index'
+
+const MODEL = "claude-sonnet-4-5-20250929";
 
 const LW_PROMPT = readFileSync(join(process.cwd(), 'llm/lesswrong_prompt.txt'), 'utf-8');
 const LW_TOOL_SCHEMA = JSON.parse(readFileSync(join(process.cwd(), 'llm/lesswrong_tool_schema.json'), 'utf-8'));
+const CAI_PROMPT = readFileSync(join(process.cwd(), 'llm/civitai_prompt.txt'), 'utf-8');
+const HF_PROMPT = readFileSync(join(process.cwd(), 'llm/huggingface_prompt.txt'), 'utf-8');
 
 const anthropic = new Anthropic();
 
@@ -33,7 +45,9 @@ export async function GET() {
   await upsert_rankings(db, civ_models);
 
   // do llm postprocessing
-  // TODO
+  await postprocess_lw();
+  await postprocess_hf();
+  await postprocess_cai();
 
   // return fetched contents
   return Response.json({fetched_contents: fetched_contents});
@@ -46,6 +60,56 @@ export async function GET() {
 //   return Response.json({status: 'ok'});
 // }
 
+async function postprocess_cai() {
+  const rankings = await query_rankings(db, 'civitai');
+  const unprocessed = rankings
+    .filter(r => r.summary === null)
+    .slice(0, 1); // TODO remove slice
+
+  for (const ranking of unprocessed) {
+    if (!ranking.description) continue;
+
+    const msg = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 256,
+      temperature: 1,
+      system: CAI_PROMPT,
+      messages: [{ role: "user", content: ranking.description }],
+    });
+
+    const textBlock = msg.content.find((block: any) => block.type === 'text');
+    if (textBlock && textBlock.type === 'text') {
+      await update_ranking_summary(db, ranking.id, textBlock.text);
+      console.log(`Processed civitai: ${ranking.modelName} -> ${textBlock.text}`);
+    }
+  }
+}
+
+async function postprocess_hf() {
+  const rankings = await query_rankings(db, 'huggingface');
+  const unprocessed = rankings
+    .filter(r => r.summary === null)
+    .slice(0, 1); // TODO remove slice
+
+  for (const ranking of unprocessed) {
+    if (!ranking.description) continue;
+
+    const msg = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 256,
+      temperature: 1,
+      system: HF_PROMPT,
+      messages: [{ role: "user", content: ranking.description }],
+    });
+
+    const textBlock = msg.content.find((block: any) => block.type === 'text');
+    if (textBlock && textBlock.type === 'text') {
+      await update_ranking_summary(db, ranking.id, textBlock.text);
+      console.log(`Processed huggingface: ${ranking.modelName} -> ${textBlock.text}`);
+    }
+  }
+}
+
 async function postprocess_lw() {
   const allArticles = await query_articles(db, 'lesswrong');
   const unprocessed = allArticles
@@ -56,7 +120,7 @@ async function postprocess_lw() {
     if (!article.rawContent) continue;
 
     const msg = await anthropic.messages.create({
-      model: "claude-sonnet-4-5-20250929",
+      model: MODEL,
       max_tokens: 1024,
       temperature: 1,
       system: LW_PROMPT,
