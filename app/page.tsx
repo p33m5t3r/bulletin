@@ -35,7 +35,9 @@ export default async function Home() {
             <h1 className="text-3xl font-bold tracking-tight text-neutral-100">
               Bulletin
             </h1>
-            <span className="text-neutral-500 text-sm italic">llms all the way down</span>
+            <span className="text-neutral-500 text-sm italic">
+              llms all the way down · by <a href="https://0xpemulis.net/" className="hover:text-fuchsia-300 transition-colors">0xpemulis</a>
+            </span>
           </div>
           <a href="https://github.com/p33m5t3r/bulletin" className="text-neutral-500 text-lg italic hover:text-fuchsia-300 transition-colors">
             source
