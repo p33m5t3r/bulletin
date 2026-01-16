@@ -1,4 +1,4 @@
-
+https://bulletin-coral.vercel.app
 
 auto-generated ml news summary dashboard project
 
