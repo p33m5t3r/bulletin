@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function Home() {
   const lwArticles = await query_articles(db, 'lesswrong')
+  const hfPapers = await query_articles(db, 'hf')
   const hfRankings = await query_rankings(db, 'huggingface')
   const civRankings = await query_rankings(db, 'civitai')
 
@@ -24,6 +25,22 @@ export default async function Home() {
             </article>
           ))}
           {lwArticles.length === 0 && <p className="text-gray-500">No articles yet</p>}
+        </div>
+      </section>
+
+      <section className="mb-12">
+        <h2 className="text-xl font-semibold mb-4">HuggingFace Daily Papers</h2>
+        <div className="space-y-4">
+          {hfPapers.map(a => (
+            <article key={a.id} className="border-b pb-4">
+              <a href={a.link} className="text-blue-600 hover:underline font-medium">
+                {a.title}
+              </a>
+              {a.author && <p className="text-sm text-gray-500">by {a.author}</p>}
+              {a.summary && <p className="mt-2 text-gray-700">{a.summary}</p>}
+            </article>
+          ))}
+          {hfPapers.length === 0 && <p className="text-gray-500">No papers yet</p>}
         </div>
       </section>
 

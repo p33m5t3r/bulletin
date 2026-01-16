@@ -1,0 +1,14 @@
+{
+  "type": "object",
+  "properties": {
+    "should_include": {
+      "type": "boolean",
+      "description": "true to include, false to reject (agents, off-topic, low-quality)"
+    },
+    "summary": {
+      "type": "string",
+      "description": "ultra-reductive 3-5 word summary of core contribution"
+    }
+  },
+  "required": ["should_include", "summary"]
+}

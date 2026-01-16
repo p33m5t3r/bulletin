@@ -19,6 +19,8 @@ const LW_PROMPT = readFileSync(join(process.cwd(), 'llm/lesswrong_prompt.txt'), 
 const LW_TOOL_SCHEMA = JSON.parse(readFileSync(join(process.cwd(), 'llm/lesswrong_tool_schema.json'), 'utf-8'));
 const CAI_PROMPT = readFileSync(join(process.cwd(), 'llm/civitai_prompt.txt'), 'utf-8');
 const HF_PROMPT = readFileSync(join(process.cwd(), 'llm/huggingface_prompt.txt'), 'utf-8');
+const HFPAPERS_PROMPT = readFileSync(join(process.cwd(), 'llm/hfpapers_prompt.txt'), 'utf-8');
+const HFPAPERS_TOOL_SCHEMA = JSON.parse(readFileSync(join(process.cwd(), 'llm/hfpapers_tool_schema.json'), 'utf-8'));
 
 const anthropic = new Anthropic();
 
@@ -28,6 +30,7 @@ export async function GET() {
   const civ_models = await fetch_top_civitai_models(10);
   const hf_models = await fetch_trending_huggingface_models(10);
   const lw_articles = await fetch_lesswrong_feed();
+  const hf_articles = await fetch_hf_papers(20);
 
   const fetched_contents = ({
       hf_models: hf_models,
@@ -37,28 +40,35 @@ export async function GET() {
         fetchedAt: a.fetchedAt,
         publishedAt: a.publishedAt 
       })),  // shorter repr ^
+      hf_articles: hf_articles.map(a => ({
+        title: a.title,
+        fetchedAt: a.fetchedAt,
+        publishedAt: a.publishedAt 
+      })),  // shorter repr ^
   });
 
   // insert/upsert fetched contents into db 
   await insert_articles(db, lw_articles);
+  await insert_articles(db, hf_articles);
   await upsert_rankings(db, hf_models);
   await upsert_rankings(db, civ_models);
 
   // do llm postprocessing
-  await postprocess_lw();
-  await postprocess_hf();
-  await postprocess_cai();
+  // await postprocess_lw();
+  // await postprocess_hf();
+  // await postprocess_cai();
+  await postprocess_hfpapers();
 
   // return fetched contents
   return Response.json({fetched_contents: fetched_contents});
 }
 
 // export async function GET() {
-//   // await postprocess_lw();
-//   const model = await fetch_top_civitai_models(1);
+//   const articles = await fetch_arxiv_feed();
 // 
 //   return Response.json({status: 'ok'});
 // }
+
 
 async function postprocess_cai() {
   const rankings = await query_rankings(db, 'civitai');
@@ -146,6 +156,42 @@ async function postprocess_lw() {
   }
 }
 
+async function postprocess_hfpapers() {
+  const allPapers = await query_articles(db, 'hf');
+  const unprocessed = allPapers
+    .filter(a => a.shouldInclude === null)
+    .slice(0, 1); // TODO: remove slice
+
+  for (const paper of unprocessed) {
+    if (!paper.rawContent) continue;
+
+    const msg = await anthropic.messages.create({
+      model: MODEL,
+      max_tokens: 256,
+      temperature: 1,
+      system: HFPAPERS_PROMPT,
+      messages: [{ role: "user", content: paper.rawContent }],
+      tools: [{
+        name: "process_paper",
+        description: "Process the paper to determine inclusion and generate summary",
+        input_schema: HFPAPERS_TOOL_SCHEMA
+      }]
+    });
+
+    const toolUse = msg.content.find((block: any) => block.type === 'tool_use');
+    if (toolUse && toolUse.type === 'tool_use') {
+      const input = toolUse.input as { should_include: boolean; summary: string };
+      await update_article_summary(
+        db,
+        paper.link,
+        input.summary,
+        input.should_include
+      );
+      console.log(`Processed HF paper: ${paper.title} -> ${input.summary} (include=${input.should_include})`);
+    }
+  }
+}
+
 
 // https://github.com/civitai/civitai/wiki/REST-API-Reference#get-apiv1models
 async function fetch_top_civitai_models(limit: number): Promise<ModelRanking[]> {
@@ -205,6 +251,27 @@ async function fetch_trending_huggingface_models(limit: number): Promise<ModelRa
   );
 
   return models.sort((a, b) => (b.downloads ?? 0) - (a.downloads ?? 0));
+}
+
+// huggingface daily papers (trending)
+async function fetch_hf_papers(limit: number = 20): Promise<Article[]> {
+  const res = await fetch(`https://huggingface.co/api/daily_papers?sort=trending&limit=${limit}`);
+  const data = await res.json();
+
+  const articles = data
+    .filter((item: any) => item.paper?.id && item.paper?.title)
+    .map((item: any) => ({
+      link: `https://arxiv.org/abs/${item.paper.id}`,
+      source: 'hf',
+      title: item.paper.title,
+      author: item.paper.authors?.map((a: any) => a.name).join(', ') ?? null,
+      rawContent: item.paper.summary ?? null,
+      summary: null,  // HF already has AI summary, we dont want that one
+      shouldInclude: null,
+      publishedAt: item.publishedAt ? new Date(item.publishedAt) : null,
+    }));
+
+  return articles;
 }
 
 // www.lesswrong.com
