@@ -19,6 +19,7 @@ export const modelRankings = mysqlTable('model_rankings', {
   id: int('id').primaryKey().autoincrement(),
   source: varchar('source', { length: 50 }).notNull(),       // 'huggingface' | 'civitai'
   modelName: varchar('model_name', { length: 255 }).notNull(), // name is the identifier
+  link: varchar('link', { length: 512 }),                    // URL to model page
   downloads: int('downloads'),
   description: mediumtext('description'),  // README / raw content
   summary: text('summary'),          // LLM generated
@@ -28,7 +29,15 @@ export const modelRankings = mysqlTable('model_rankings', {
   unique().on(table.source, table.modelName, table.fetchedDate),
 ])
 
+// Daily AI-generated bulletin summary
+export const dailySummaries = mysqlTable('daily_summaries', {
+  date: date('date').primaryKey(),
+  summary: text('summary').notNull(),
+  generatedAt: timestamp('generated_at').defaultNow(),
+})
+
 export type Article = typeof articles.$inferInsert
 export type ModelRanking = typeof modelRankings.$inferInsert
+export type DailySummary = typeof dailySummaries.$inferInsert
 export const today = () => new Date().toISOString().slice(0,10);
 

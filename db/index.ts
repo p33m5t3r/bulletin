@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/mysql2'
 import { sql, eq, and } from 'drizzle-orm'
 import mysql from 'mysql2/promise'
 import * as schema from './schema'
-import { Article, ModelRanking, articles, modelRankings } from './schema'
+import { Article, ModelRanking, articles, modelRankings, dailySummaries } from './schema'
 
 const connection = await mysql.createConnection(process.env.DATABASE_URL!)
 
@@ -55,4 +55,18 @@ export async function update_ranking_summary(db: DB, id: number, summary: string
   await db.update(modelRankings)
     .set({ summary })
     .where(eq(modelRankings.id, id))
+}
+
+// fetch daily summary for a date (returns first match or undefined)
+export async function query_daily_summary(db: DB, date: string) {
+  const results = await db.select()
+    .from(dailySummaries)
+    .where(eq(dailySummaries.date, date))
+  return results[0] ?? null
+}
+
+// insert daily summary
+export async function insert_daily_summary(db: DB, date: string, summary: string) {
+  await db.insert(dailySummaries)
+    .values({ date, summary })
 }
