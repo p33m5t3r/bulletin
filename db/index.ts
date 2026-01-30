@@ -2,7 +2,7 @@ import { drizzle } from 'drizzle-orm/planetscale-serverless'
 import { Client } from '@planetscale/database'
 import { sql, eq, and } from 'drizzle-orm'
 import * as schema from './schema'
-import { Article, ModelRanking, articles, modelRankings, dailySummaries } from './schema'
+import { Article, ModelRanking, articles, modelRankings, dailySummaries, today } from './schema'
 
 const client = new Client({
   host: process.env.DATABASE_HOST,
@@ -47,11 +47,14 @@ export async function query_articles(db: DB, source: string) {
     )
 }
 
-// fetch all model rankings matching source
+// fetch all model rankings matching source for today
 export async function query_rankings(db: DB, source: string) {
   return await db.select()
     .from(modelRankings)
-    .where(eq(modelRankings.source, source))
+    .where(and(
+      eq(modelRankings.source, source),
+      eq(modelRankings.fetchedDate, new Date(today()))
+    ))
 }
 
 // update LLM summary for a ranking
